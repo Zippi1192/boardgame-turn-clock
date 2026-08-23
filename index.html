@@ -6,163 +6,28 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f1115">
-<meta name="description" content="2〜6人対応のボドゲタイマー。各ターンに規定時間を自動加算し、余り時間は次のターンへ持ち越し。超過時間、全体一時停止、縦横レスポンシブ対応。">
+<meta name="description" content="2〜6人対応のボドゲタイマー。SOLOと複数端末同期ONLINE ROOMに対応。毎ターン規定時間を加算し、余り時間を持ち越せます。">
 <title>ボドゲタイマー</title>
+<script src="./firebase-config.js"></script>
 <style>
-  :root{
-    --bg:#0f1115;--panel:#191c22;--panel2:#20242b;--line:#2b3039;
-    --text:#f5f7fa;--muted:#9aa3ad;--danger:#ff5d5d;--accent:#ffcf5a;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;min-height:100%;overscroll-behavior:none}
-  body{padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 18px);user-select:none;-webkit-user-select:none}
-  .app{max-width:680px;margin:0 auto}
-  .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
-  .title{font-size:19px;font-weight:950;letter-spacing:.03em}
-  .small{font-size:12px;color:var(--muted);line-height:1.45}
-  .status{font-size:11px;font-weight:950;letter-spacing:.08em;padding:7px 10px;border-radius:999px;background:#252a32;color:#fff;white-space:nowrap}
-  .status.running{background:#fff;color:#111}
-  .status.paused{background:#3a3030;color:#ffd7d7;border:1px solid #614343}
-
-  button{appearance:none;border:0;border-radius:14px;padding:14px 12px;font-size:16px;font-weight:900;background:#f2f3f5;color:#111;touch-action:manipulation}
-  button.secondary{background:#242831;color:var(--text);border:1px solid var(--line)}
-  button:active{transform:scale(.98)}
-
-  .globalPause{width:100%;margin:0 0 10px;padding:17px 14px;border-radius:16px;font-size:18px;font-weight:950;background:#f3f4f6;color:#101114}
-  .globalPause.paused{background:var(--accent);color:#241b00}
-
-  .players{display:grid;grid-template-columns:1fr;gap:9px}
-  .players.compact{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .player{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:12px 14px;min-height:150px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:9px;transition:.12s transform,.12s border-color,.12s background;overflow:hidden}
-  .players.compact .player{min-height:136px;padding:11px}
-  .playerMain{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
-  .player:active{transform:scale(.99)}
-  .player.active{border-color:#fff;background:var(--panel2);box-shadow:0 0 0 2px rgba(255,255,255,.05) inset}
-  .player.active.pausedActive{border-style:dashed;border-color:#9aa3ad}
-  .player.overtime{border-color:#7b3838;background:#24191b}
-  .player.active.overtime{border-color:var(--danger);background:#2b1b1e}
-  .left{min-width:0;max-width:42%}
-  .name{font-size:24px;font-weight:950;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .hint{font-size:11px;color:var(--muted)}
-  .turnRule{font-size:10px;color:#c9d0d7;font-weight:850;margin-top:4px;white-space:nowrap}
-  .adjust{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-  .timeAdjust{padding:8px 6px;border-radius:10px;font-size:12px;line-height:1;background:#252a32;color:var(--text);border:1px solid var(--line)}
-  .timeAdjust.minus{color:#ffb2b2}
-  .timeAdjust.plus{color:#bff3c9}
-  .time{font-variant-numeric:tabular-nums;font-size:48px;font-weight:950;letter-spacing:-.045em;line-height:1;white-space:nowrap}
-  .players.compact .time{font-size:34px}
-  .players.compact .name{font-size:20px}
-  .player.active .time{transform:scale(1.03);transform-origin:right center}
-  .player.overtime .time{color:var(--danger)}
-  .badge{position:absolute;top:7px;right:8px;font-size:9px;font-weight:950;letter-spacing:.08em;color:#111;background:#fff;border-radius:999px;padding:4px 7px;display:none}
-  .player.active .badge{display:block}
-  .player.active.pausedActive .badge{background:#8a929c;color:#101216}
-  .player.overtime .badge{background:var(--danger);color:#fff}
-
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
-  .setup{margin-top:11px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}
-  details summary{cursor:pointer;font-weight:900;list-style:none}
-  details summary::-webkit-details-marker{display:none}
-  .sectionLabel{font-size:11px;color:var(--muted);font-weight:900;letter-spacing:.07em;margin-top:13px;margin-bottom:7px}
-  .countButtons{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
-  .countButtons button{padding:10px 4px;font-size:14px;background:#252a32;color:var(--text);border:1px solid var(--line)}
-  .countButtons button.selected{background:#fff;color:#111;border-color:#fff}
-  .preset{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-  .preset button{padding:10px 5px;font-size:13px;background:#252a32;color:var(--text);border:1px solid var(--line)}
-  .names{display:grid;gap:7px}
-  .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-  input{width:100%;font-size:16px;padding:10px 11px;border-radius:12px;border:1px solid var(--line);background:#101216;color:#fff;outline:none;user-select:text;-webkit-user-select:text}
-  .note{margin-top:10px;padding:10px 11px;border-radius:12px;background:#111419;border:1px solid #242a33;color:var(--muted);font-size:11px;line-height:1.5}
-  .footer{margin-top:11px;text-align:center;color:var(--muted);font-size:11px;line-height:1.55}
-
-  @media (max-width:390px){
-    .players.compact .time{font-size:30px}.players.compact .name{font-size:18px}.players.compact .player{min-height:130px}
-    .timeAdjust{font-size:11px;padding:7px 4px}
-  }
-  @media (max-height:720px){
-    .globalPause{padding:13px}.player{min-height:132px}.time{font-size:42px}.players.compact .player{min-height:120px}.players.compact .time{font-size:29px}
-  }
-
-  /* iPhone / smartphone landscape table mode */
-  @media (orientation:landscape) and (max-height:520px){
-    html,body{height:100%;min-height:100%;overflow:hidden}
-    body{
-      padding:calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + 7px) calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 7px);
-    }
-    .app{
-      max-width:none;width:100%;height:100%;min-height:0;margin:0;
-      display:grid;grid-template-columns:minmax(0,1fr) 148px;
-      grid-template-rows:auto auto auto minmax(0,1fr);gap:6px;
-    }
-    .players{grid-column:1;grid-row:1 / 5;min-height:0;height:100%;gap:6px}
-    .players,.players.compact{grid-template-columns:1fr}
-    .players[data-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr}
-    .players[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr}
-    .players[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
-    .players[data-count="5"],.players[data-count="6"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
-
-    .player,.players.compact .player{
-      min-height:0;height:100%;padding:8px 7px;border-radius:15px;
-      flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px;
-    }
-    .playerMain{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
-    .left,.players.compact .left{max-width:100%;width:100%}
-    .name,.players.compact .name{font-size:clamp(15px,2.5vw,22px);margin-bottom:1px}
-    .hint{font-size:9px}
-    .turnRule{font-size:8px;margin-top:2px}
-    .adjust{grid-template-columns:1fr 1fr;gap:3px;width:100%}
-    .timeAdjust{font-size:8px;padding:4px 2px;border-radius:7px}
-    .time,.players.compact .time{font-size:clamp(35px,7.2vw,66px);letter-spacing:-.055em}
-    .players[data-count="5"] .time,.players[data-count="6"] .time{font-size:clamp(31px,5.4vw,50px)}
-    .player.active .time{transform:scale(1.04);transform-origin:center}
-    .badge{top:5px;right:6px;font-size:8px;padding:3px 6px}
-
-    .top{
-      grid-column:2;grid-row:1;margin:0;gap:4px;align-items:stretch;
-      flex-direction:column;justify-content:flex-start;min-width:0
-    }
-    .title{font-size:14px;line-height:1.05;white-space:nowrap}
-    .top .small{display:none}
-    .status{font-size:9px;padding:5px 6px;text-align:center;overflow:hidden;text-overflow:ellipsis}
-
-    .globalPause{
-      grid-column:2;grid-row:2;margin:0;padding:10px 5px;border-radius:12px;font-size:12px;line-height:1.15
-    }
-    #turnNav{
-      grid-column:2;grid-row:3;margin:0;grid-template-columns:1fr 1fr;gap:5px
-    }
-    #turnNav button{font-size:11px;padding:9px 3px;border-radius:11px}
-
-    .setup{
-      grid-column:2;grid-row:4;margin:0;min-height:0;overflow:auto;border-radius:12px;padding:8px;
-      -webkit-overflow-scrolling:touch
-    }
-    details summary{font-size:12px}
-    .sectionLabel{font-size:9px;margin-top:9px;margin-bottom:5px}
-    .countButtons{grid-template-columns:repeat(2,1fr);gap:4px}
-    .countButtons button{font-size:10px;padding:7px 2px}
-    .preset{grid-template-columns:repeat(2,1fr);gap:4px}
-    .preset button{font-size:9px;padding:7px 2px}
-    .names{gap:4px}
-    .row{grid-template-columns:1fr;gap:1px}
-    .row .small{display:none}
-    input{font-size:12px;padding:7px;border-radius:9px}
-    .setup .controls{grid-template-columns:1fr;gap:4px;margin-top:6px!important}
-    .setup .controls button{font-size:10px;padding:7px 3px;border-radius:9px}
-    .note{font-size:9px;padding:6px;margin-top:6px}
-    .footer{display:none}
-  }
-
-  @media (orientation:landscape) and (max-height:390px){
-    .app{grid-template-columns:minmax(0,1fr) 132px;gap:5px}
-    .time,.players.compact .time{font-size:clamp(31px,6.6vw,56px)}
-    .players[data-count="5"] .time,.players[data-count="6"] .time{font-size:clamp(28px,4.8vw,43px)}
-    .name,.players.compact .name{font-size:clamp(14px,2.1vw,19px)}
-    .hint{display:none}
-    .turnRule{font-size:7px}
-    .timeAdjust{font-size:7px;padding:3px 1px}
-    .globalPause{padding:8px 4px;font-size:11px}
-  }
+:root{--bg:#0f1115;--panel:#191c22;--panel2:#20242b;--line:#2b3039;--text:#f5f7fa;--muted:#9aa3ad;--danger:#ff5d5d;--accent:#ffcf5a;--ok:#79dda0;--blue:#82b7ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;min-height:100%;overscroll-behavior:none}
+body{padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 18px);user-select:none;-webkit-user-select:none}
+.app{max-width:680px;margin:0 auto}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.title{font-size:19px;font-weight:950;letter-spacing:.03em}.small{font-size:12px;color:var(--muted);line-height:1.45}
+.status{font-size:11px;font-weight:950;letter-spacing:.06em;padding:7px 10px;border-radius:999px;background:#252a32;color:#fff;white-space:nowrap}.status.running{background:#fff;color:#111}.status.paused{background:#3a3030;color:#ffd7d7;border:1px solid #614343}.status.sync{background:#193528;color:#c8f4d7;border:1px solid #2f6748}
+button{appearance:none;border:0;border-radius:14px;padding:14px 12px;font-size:16px;font-weight:900;background:#f2f3f5;color:#111;touch-action:manipulation}button.secondary{background:#242831;color:var(--text);border:1px solid var(--line)}button:active{transform:scale(.98)}button:disabled{opacity:.45;transform:none}
+.modebar{display:flex;gap:5px;margin-top:6px}.modebtn{padding:6px 9px;border-radius:999px;font-size:10px;background:#242831;color:#bcc5cf;border:1px solid var(--line)}.modebtn.selected{background:#fff;color:#111;border-color:#fff}
+.roomBar{display:none;background:#15191f;border:1px solid var(--line);border-radius:14px;padding:9px 10px;margin-bottom:8px}.roomBar.show{display:block}.roomTop{display:flex;align-items:center;justify-content:space-between;gap:7px}.roomCode{font-size:18px;font-weight:950;letter-spacing:.12em}.roomActions{display:flex;gap:5px}.tinyBtn{font-size:10px;padding:7px 8px;border-radius:9px}.seatRow{display:flex;align-items:center;gap:5px;margin-top:8px;overflow:auto}.seatLabel{font-size:10px;color:var(--muted);white-space:nowrap}.seatBtn{font-size:10px;padding:6px 8px;border-radius:8px;background:#242831;color:#fff;border:1px solid var(--line)}.seatBtn.selected{background:var(--blue);color:#07111f;border-color:var(--blue)}
+.lobby{display:none;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:8px}.lobby.show{display:block}.lobby h2{font-size:22px;margin:0 0 6px}.lobbyGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}.lobbyCard{background:#111419;border:1px solid var(--line);border-radius:15px;padding:12px}.lobbyCard h3{margin:0 0 8px;font-size:15px}.joinRow{display:grid;grid-template-columns:1fr auto;gap:7px}.roomInput{text-transform:uppercase;letter-spacing:.12em;font-weight:900}.firebaseWarn{display:none;margin-top:12px;padding:10px;border-radius:12px;background:#291d16;border:1px solid #6a4932;color:#ffd7b4;font-size:11px;line-height:1.5}.firebaseWarn.show{display:block}
+.globalPause{width:100%;margin:0 0 10px;padding:17px 14px;border-radius:16px;font-size:18px;font-weight:950;background:#f3f4f6;color:#101114}.globalPause.paused{background:var(--accent);color:#241b00}
+.players{display:grid;grid-template-columns:1fr;gap:9px}.players.compact{grid-template-columns:repeat(2,minmax(0,1fr))}.player{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:12px 14px;min-height:150px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:9px;transition:.12s transform,.12s border-color,.12s background;overflow:hidden}.players.compact .player{min-height:136px;padding:11px}.playerMain{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}.player:active{transform:scale(.99)}.player.active{border-color:#fff;background:var(--panel2);box-shadow:0 0 0 2px rgba(255,255,255,.05) inset}.player.mine{box-shadow:0 0 0 2px rgba(130,183,255,.22) inset}.player.active.mine{border-color:var(--blue)}.player.active.pausedActive{border-style:dashed;border-color:#9aa3ad}.player.overtime{border-color:#7b3838;background:#24191b}.player.active.overtime{border-color:var(--danger);background:#2b1b1e}.left{min-width:0;max-width:42%}.name{font-size:24px;font-weight:950;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hint{font-size:11px;color:var(--muted)}.turnRule{font-size:10px;color:#c9d0d7;font-weight:850;margin-top:4px;white-space:nowrap}.adjust{display:grid;grid-template-columns:1fr 1fr;gap:7px}.timeAdjust{padding:8px 6px;border-radius:10px;font-size:12px;line-height:1;background:#252a32;color:var(--text);border:1px solid var(--line)}.timeAdjust.minus{color:#ffb2b2}.timeAdjust.plus{color:#bff3c9}.time{font-variant-numeric:tabular-nums;font-size:48px;font-weight:950;letter-spacing:-.045em;line-height:1;white-space:nowrap}.players.compact .time{font-size:34px}.players.compact .name{font-size:20px}.player.active .time{transform:scale(1.03);transform-origin:right center}.player.overtime .time{color:var(--danger)}.badge{position:absolute;top:7px;right:8px;font-size:9px;font-weight:950;letter-spacing:.08em;color:#111;background:#fff;border-radius:999px;padding:4px 7px;display:none}.player.active .badge{display:block}.player.active.pausedActive .badge{background:#8a929c;color:#101216}.player.overtime .badge{background:var(--danger);color:#fff}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.setup{margin-top:11px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}details summary{cursor:pointer;font-weight:900;list-style:none}details summary::-webkit-details-marker{display:none}.sectionLabel{font-size:11px;color:var(--muted);font-weight:900;letter-spacing:.07em;margin-top:13px;margin-bottom:7px}.countButtons{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.countButtons button{padding:10px 4px;font-size:14px;background:#252a32;color:var(--text);border:1px solid var(--line)}.countButtons button.selected{background:#fff;color:#111;border-color:#fff}.preset{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.preset button{padding:10px 5px;font-size:13px;background:#252a32;color:var(--text);border:1px solid var(--line)}.names{display:grid;gap:7px}.row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}input{width:100%;font-size:16px;padding:10px 11px;border-radius:12px;border:1px solid var(--line);background:#101216;color:#fff;outline:none;user-select:text;-webkit-user-select:text}.note{margin-top:10px;padding:10px 11px;border-radius:12px;background:#111419;border:1px solid #242a33;color:var(--muted);font-size:11px;line-height:1.5}.footer{margin-top:11px;text-align:center;color:var(--muted);font-size:11px;line-height:1.55}.hide{display:none!important}
+@media(max-width:390px){.players.compact .time{font-size:30px}.players.compact .name{font-size:18px}.players.compact .player{min-height:130px}.timeAdjust{font-size:11px;padding:7px 4px}.lobbyGrid{grid-template-columns:1fr}}
+@media(max-height:720px){.globalPause{padding:13px}.player{min-height:132px}.time{font-size:42px}.players.compact .player{min-height:120px}.players.compact .time{font-size:29px}}
+@media(orientation:landscape) and (max-height:520px){html,body{height:100%;min-height:100%;overflow:hidden}body{padding:calc(env(safe-area-inset-top) + 6px) calc(env(safe-area-inset-right) + 7px) calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 7px)}.app{max-width:none;width:100%;height:100%;min-height:0;margin:0;display:grid;grid-template-columns:minmax(0,1fr) 158px;grid-template-rows:auto auto auto auto minmax(0,1fr);gap:5px}.players{grid-column:1;grid-row:1/6;min-height:0;height:100%;gap:6px}.players,.players.compact{grid-template-columns:1fr}.players[data-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr}.players[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr}.players[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}.players[data-count="5"],.players[data-count="6"]{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}.player,.players.compact .player{min-height:0;height:100%;padding:8px 7px;border-radius:15px;flex-direction:column;align-items:stretch;justify-content:center;text-align:center;gap:4px}.playerMain{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}.left,.players.compact .left{max-width:100%;width:100%}.name,.players.compact .name{font-size:clamp(15px,2.5vw,22px);margin-bottom:1px}.hint{font-size:9px}.turnRule{font-size:8px;margin-top:2px}.adjust{grid-template-columns:1fr 1fr;gap:3px;width:100%}.timeAdjust{font-size:8px;padding:4px 2px;border-radius:7px}.time,.players.compact .time{font-size:clamp(35px,7.2vw,66px);letter-spacing:-.055em}.players[data-count="5"] .time,.players[data-count="6"] .time{font-size:clamp(31px,5.4vw,50px)}.player.active .time{transform:scale(1.04);transform-origin:center}.badge{top:5px;right:6px;font-size:8px;padding:3px 6px}.top{grid-column:2;grid-row:1;margin:0;gap:3px;align-items:stretch;flex-direction:column;justify-content:flex-start;min-width:0}.title{font-size:14px;line-height:1.05;white-space:nowrap}.top .small{display:none}.modebar{margin-top:3px}.modebtn{font-size:8px;padding:4px 5px}.status{font-size:8px;padding:4px 5px;text-align:center}.roomBar{grid-column:2;grid-row:2;margin:0;padding:6px;border-radius:10px;min-height:0}.roomCode{font-size:13px}.roomActions .tinyBtn{font-size:7px;padding:5px}.seatRow{margin-top:4px;gap:2px}.seatLabel{display:none}.seatBtn{font-size:7px;padding:4px}.globalPause{grid-column:2;grid-row:3;margin:0;padding:9px 5px;border-radius:11px;font-size:11px;line-height:1.1}#turnNav{grid-column:2;grid-row:4;margin:0;grid-template-columns:1fr 1fr;gap:4px}#turnNav button{font-size:10px;padding:8px 2px;border-radius:10px}.setup{grid-column:2;grid-row:5;margin:0;min-height:0;overflow:auto;border-radius:11px;padding:7px;-webkit-overflow-scrolling:touch}.setup summary{font-size:11px}.sectionLabel{font-size:8px;margin-top:7px;margin-bottom:4px}.countButtons{grid-template-columns:repeat(2,1fr);gap:3px}.countButtons button{font-size:9px;padding:6px 2px}.preset{grid-template-columns:repeat(2,1fr);gap:3px}.preset button{font-size:8px;padding:6px 2px}.names{gap:3px}.row{grid-template-columns:1fr;gap:1px}.row .small{display:none}input{font-size:11px;padding:6px;border-radius:8px}.setup .controls{grid-template-columns:1fr;gap:3px!important;margin-top:5px!important}.setup .controls button{font-size:9px;padding:6px 2px;border-radius:8px}.note{font-size:8px;padding:5px;margin-top:5px}.footer{display:none}.lobby.show{grid-column:1/3;grid-row:1/6;margin:0;overflow:auto}.lobbyGrid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -171,266 +36,84 @@
     <div>
       <div class="title">⏱ ボドゲタイマー</div>
       <div class="small" id="subtitle">3人・毎ターン +1:00 / 余り時間は持ち越し</div>
+      <div class="modebar"><button class="modebtn selected" id="soloModeBtn">SOLO</button><button class="modebtn" id="onlineModeBtn">ONLINE ROOM</button></div>
     </div>
     <div class="status paused" id="status">ALL PAUSED</div>
   </div>
 
-  <button class="globalPause paused" id="globalPauseBtn">▶ 全体を開始</button>
-
-  <div class="players" id="players"></div>
-
-  <div class="controls" id="turnNav">
-    <button id="prevBtn" class="secondary">◀ 前の人</button>
-    <button id="nextBtn">次の人 ▶</button>
+  <div class="lobby" id="onlineLobby">
+    <h2>ONLINE ROOM</h2>
+    <div class="small">同じ部屋に入った端末で、手番・残り時間・PAUSE・設定をリアルタイム共有します。</div>
+    <div class="lobbyGrid">
+      <div class="lobbyCard"><h3>新しい部屋を作る</h3><div class="small">現在の人数・規定時間・名前で部屋を開始します。</div><button id="createRoomBtn" style="width:100%;margin-top:10px">部屋を作る</button></div>
+      <div class="lobbyCard"><h3>部屋に参加</h3><div class="joinRow"><input class="roomInput" id="joinCode" maxlength="7" placeholder="ABC123"><button id="joinRoomBtn">参加</button></div><div class="small" style="margin-top:7px">共有された6文字の部屋コードを入力。</div></div>
+    </div>
+    <div class="firebaseWarn" id="firebaseWarn">Firebase設定がまだ入っていません。<code>firebase-config.js</code> にFirebase Consoleで取得した設定値を貼るとONLINE ROOMが有効になります。</div>
+    <button class="secondary" id="backSoloBtn" style="width:100%;margin-top:12px">SOLOに戻る</button>
   </div>
+
+  <div class="roomBar" id="roomBar"><div class="roomTop"><div><div class="small">ROOM</div><div class="roomCode" id="roomCode">------</div></div><div class="roomActions"><button class="tinyBtn secondary" id="shareRoomBtn">共有</button><button class="tinyBtn secondary" id="leaveRoomBtn">退出</button><button class="tinyBtn secondary hide" id="endRoomBtn">終了</button></div></div><div class="seatRow"><span class="seatLabel">自分：</span><div id="seatButtons" style="display:flex;gap:4px"></div></div></div>
+
+  <button class="globalPause paused" id="globalPauseBtn">▶ 全体を開始</button>
+  <div class="players" id="players"></div>
+  <div class="controls" id="turnNav"><button id="prevBtn" class="secondary">◀ 前の人</button><button id="nextBtn">次の人 ▶</button></div>
 
   <details class="setup">
     <summary>⚙️ 設定</summary>
-
-    <div class="sectionLabel">人数</div>
-    <div class="countButtons" id="countButtons">
-      <button data-count="2">2人</button>
-      <button data-count="3" class="selected">3人</button>
-      <button data-count="4">4人</button>
-      <button data-count="5">5人</button>
-      <button data-count="6">6人</button>
-    </div>
-
-    <div class="sectionLabel">1ターンの規定時間</div>
-    <div class="preset">
-      <button data-sec="30">30秒</button>
-      <button data-sec="60">1分</button>
-      <button data-sec="90">1分30秒</button>
-      <button data-sec="120">2分</button>
-    </div>
-
-    <div class="sectionLabel">プレイヤー名</div>
-    <div class="names" id="names"></div>
-
-    <div class="controls" style="margin-top:10px">
-      <button id="applyNames" class="secondary">名前を反映</button>
-      <button id="resetBtn">時間をリセット</button>
-    </div>
-    <div class="note">各プレイヤーはゲーム開始時に1ターン分の規定時間を持ち、通常の「次の人」進行で次の自分の手番が来るたびに規定時間が自動で加算されます。余った時間はそのまま持ち越します。各カードの−/＋で規定時間1回分を手動補正できます。0:00を過ぎても止まらず、超過時間を赤字で計測します。人数や規定時間を変更するとタイマーはリセットされます。</div>
+    <div class="sectionLabel">人数</div><div class="countButtons" id="countButtons"><button data-count="2">2人</button><button data-count="3" class="selected">3人</button><button data-count="4">4人</button><button data-count="5">5人</button><button data-count="6">6人</button></div>
+    <div class="sectionLabel">1ターンの規定時間</div><div class="preset"><button data-sec="30">30秒</button><button data-sec="60">1分</button><button data-sec="90">1分30秒</button><button data-sec="120">2分</button></div>
+    <div class="sectionLabel">プレイヤー名</div><div class="names" id="names"></div>
+    <div class="controls" style="margin-top:10px"><button id="applyNames" class="secondary">名前を反映</button><button id="resetBtn">時間をリセット</button></div>
+    <div class="note">各プレイヤーはゲーム開始時に1ターン分の規定時間を持ち、通常の「次の人」進行で次の自分の手番が来るたびに規定時間が自動加算されます。余った時間はそのまま持ち越します。各カードの−/＋で規定時間1回分を手動補正できます。ONLINE ROOMではこれらの操作が参加端末へ同期されます。</div>
   </details>
-
-  <div class="footer">2〜6人対応 / 毎ターン規定時間を自動加算 / 余り時間を持ち越し / 縦・横画面に自動最適化 / ブラウザだけで動作 / 通信・ログイン不要。ページを閉じると現在のタイマー状態はリセットされます。</div>
+  <div class="footer">2〜6人対応 / SOLO・ONLINE ROOM / 毎ターン規定時間を自動加算 / 余り時間を持ち越し / 超過時間表示 / 縦・横画面に自動最適化</div>
 </div>
 <script>
 (()=>{
-  'use strict';
-  const MAX=6;
-  let playerCount=3;
-  let baseMs=60000;
-  let remain=Array(MAX).fill(baseMs);
-  let names=['A','B','C','D','E','F'];
-  let active=0;
-  let globalPaused=true;
-  let last=performance.now();
-  let crossedZero=Array(MAX).fill(false);
-  let turnsStarted=Array(MAX).fill(0);
-  turnsStarted[0]=1;
-
-  const playersWrap=document.getElementById('players');
-  const namesWrap=document.getElementById('names');
-  const status=document.getElementById('status');
-  const pauseBtn=document.getElementById('globalPauseBtn');
-  const subtitle=document.getElementById('subtitle');
-
-  function fmt(ms){
-    const neg=ms<0;
-    const a=Math.abs(ms);
-    const totalTenths=Math.floor(a/100);
-    const tenth=totalTenths%10;
-    const totalSeconds=Math.floor(totalTenths/10);
-    const sec=totalSeconds%60;
-    const min=Math.floor(totalSeconds/60);
-    return `${neg?'-':''}${min}:${String(sec).padStart(2,'0')}.${tenth}`;
-  }
-
-  function fmtRule(ms){
-    const totalSeconds=Math.round(Math.abs(ms)/1000);
-    const sec=totalSeconds%60;
-    const min=Math.floor(totalSeconds/60);
-    return `${min}:${String(sec).padStart(2,'0')}`;
-  }
-
-  function beep(){
-    try{
-      const AudioCtx=window.AudioContext||window.webkitAudioContext;
-      const ac=new AudioCtx();
-      const o=ac.createOscillator();
-      const g=ac.createGain();
-      o.type='sine';o.frequency.value=880;g.gain.value=.07;
-      o.connect(g);g.connect(ac.destination);o.start();
-      setTimeout(()=>{o.stop();ac.close();},220);
-    }catch(e){}
-  }
-
-  function notifyZero(i){
-    if(crossedZero[i]) return;
-    crossedZero[i]=true;
-    beep();
-    if(navigator.vibrate) navigator.vibrate([100,70,180]);
-  }
-
-  function buildPlayers(){
-    playersWrap.innerHTML='';
-    playersWrap.dataset.count=String(playerCount);
-    playersWrap.classList.toggle('compact',playerCount>=4);
-    for(let i=0;i<playerCount;i++){
-      const el=document.createElement('div');
-      el.className='player';
-      el.dataset.i=i;
-      el.setAttribute('role','button');
-      el.setAttribute('tabindex','0');
-      el.innerHTML=`
-        <div class="playerMain">
-          <div class="left">
-            <div class="name" id="name${i}"></div>
-            <div class="hint">タップで手番</div>
-            <div class="turnRule" id="rule${i}"></div>
-          </div>
-          <div class="time" id="time${i}"></div>
-        </div>
-        <div class="adjust">
-          <button type="button" class="timeAdjust minus" data-adjust="-${i}"></button>
-          <button type="button" class="timeAdjust plus" data-adjust="+${i}"></button>
-        </div>
-        <div class="badge" id="badge${i}">TURN</div>`;
-      el.addEventListener('click',()=>{
-        const expected=(active+1)%playerCount;
-        switchActive(i,i===expected);
-      });
-      el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();const expected=(active+1)%playerCount;switchActive(i,i===expected);}});
-      const minus=el.querySelector('.minus');
-      const plus=el.querySelector('.plus');
-      minus.addEventListener('click',e=>{e.stopPropagation();adjustPlayer(i,-1);});
-      plus.addEventListener('click',e=>{e.stopPropagation();adjustPlayer(i,1);});
-      playersWrap.appendChild(el);
-    }
-    buildNameInputs();
-  }
-
-  function buildNameInputs(){
-    namesWrap.innerHTML='';
-    for(let i=0;i<playerCount;i++){
-      const row=document.createElement('div');
-      row.className='row';
-      row.innerHTML=`<input id="n${i}" value="${escapeHtml(names[i])}" maxlength="12"><span class="small">PLAYER ${i+1}</span>`;
-      namesWrap.appendChild(row);
-    }
-  }
-
-  function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-
-  function render(){
-    const rule=fmtRule(baseMs);
-    subtitle.textContent=`${playerCount}人・毎ターン +${rule} / 余り時間は持ち越し`;
-    for(let i=0;i<playerCount;i++){
-      const p=playersWrap.querySelector(`.player[data-i="${i}"]`);
-      const t=document.getElementById('time'+i);
-      const n=document.getElementById('name'+i);
-      const r=document.getElementById('rule'+i);
-      const b=document.getElementById('badge'+i);
-      if(!p||!t||!n||!r||!b) continue;
-      n.textContent=names[i];
-      t.textContent=fmt(remain[i]);
-      r.textContent=`1ターン +${rule}`;
-      b.textContent=`TURN ${Math.max(1,turnsStarted[i])}`;
-      const minus=p.querySelector('.minus');
-      const plus=p.querySelector('.plus');
-      if(minus) minus.textContent=`−${rule}`;
-      if(plus) plus.textContent=`＋${rule}`;
-      p.classList.toggle('active',i===active);
-      p.classList.toggle('pausedActive',i===active && globalPaused);
-      p.classList.toggle('overtime',remain[i]<0);
-    }
-    if(globalPaused){
-      status.textContent='ALL PAUSED';status.className='status paused';
-      pauseBtn.textContent='▶ 全体を再開';pauseBtn.classList.add('paused');
-    }else{
-      status.textContent=`${names[active]} RUNNING`;status.className='status running';
-      pauseBtn.textContent='⏸ 全体を一時停止';pauseBtn.classList.remove('paused');
-    }
-    document.querySelectorAll('[data-count]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.count)===playerCount));
-  }
-
-  function tick(now){
-    const dt=now-last;
-    if(!globalPaused && active>=0){
-      const before=remain[active];
-      remain[active]-=dt;
-      if(before>0 && remain[active]<=0) notifyZero(active);
-    }
-    last=now;render();requestAnimationFrame(tick);
-  }
-
-  function grantTurn(i){
-    if(turnsStarted[i]===0){
-      turnsStarted[i]=1;
-      return;
-    }
-    remain[i]+=baseMs;
-    turnsStarted[i]+=1;
-    if(remain[i]>0) crossedZero[i]=false;
-  }
-
-  function switchActive(i,countAsNewTurn=false){
-    if(i<0||i>=playerCount||i===active) return;
-    if(countAsNewTurn) grantTurn(i);
-    active=i;
-    last=performance.now();
-    render();
-  }
-
-  function adjustPlayer(i,direction){
-    if(i<0||i>=playerCount) return;
-    remain[i]+=direction*baseMs;
-    if(remain[i]>0) crossedZero[i]=false;
-    else if(remain[i]<=0) crossedZero[i]=true;
-    last=performance.now();
-    render();
-  }
-
-  function resetTimers(){
-    remain=Array(MAX).fill(baseMs);
-    crossedZero=Array(MAX).fill(false);
-    turnsStarted=Array(MAX).fill(0);
-    active=0;
-    turnsStarted[0]=1;
-    globalPaused=true;
-    last=performance.now();
-    render();
-  }
-
-  function setPlayerCount(n){
-    playerCount=n;
-    buildPlayers();
-    resetTimers();
-  }
-
-  document.getElementById('nextBtn').addEventListener('click',()=>switchActive((active+1)%playerCount,true));
-  document.getElementById('prevBtn').addEventListener('click',()=>switchActive((active-1+playerCount)%playerCount,false));
-  pauseBtn.addEventListener('click',()=>{globalPaused=!globalPaused;last=performance.now();render();});
-
-  document.querySelectorAll('[data-count]').forEach(btn=>btn.addEventListener('click',()=>setPlayerCount(Number(btn.dataset.count))));
-
-  document.querySelectorAll('[data-sec]').forEach(btn=>btn.addEventListener('click',()=>{
-    baseMs=Number(btn.dataset.sec)*1000;
-    resetTimers();
-  }));
-
-  document.getElementById('resetBtn').addEventListener('click',resetTimers);
-  document.getElementById('applyNames').addEventListener('click',()=>{
-    for(let i=0;i<playerCount;i++){
-      const input=document.getElementById('n'+i);
-      names[i]=(input&&input.value.trim())||String.fromCharCode(65+i);
-    }
-    render();
-  });
-
-  buildPlayers();render();requestAnimationFrame(tick);
+'use strict';
+const MAX=6;
+let mode='solo', playerCount=3, baseMs=60000, names=['A','B','C','D','E','F'];
+let localState=makeInitialState();
+let mySeat=-1, last=performance.now(), zeroSeen=Array(MAX).fill(false), lastShown=Array(MAX).fill(null);
+let fb=null, authUser=null, db=null, serverOffset=0, roomId='', roomData=null, unsubRoom=null, unsubOffset=null;
+const $=id=>document.getElementById(id);
+const playersWrap=$('players'), namesWrap=$('names'), status=$('status'), pauseBtn=$('globalPauseBtn'), subtitle=$('subtitle');
+function makeInitialState(){const r=Array(MAX).fill(baseMs),t=Array(MAX).fill(0);t[0]=1;return{active:0,paused:true,remain:r,turns:t,updatedAt:Date.now()}}
+function fmt(ms){const neg=ms<0,a=Math.abs(ms),tt=Math.floor(a/100),t=tt%10,ts=Math.floor(tt/10),s=ts%60,m=Math.floor(ts/60);return `${neg?'-':''}${m}:${String(s).padStart(2,'0')}.${t}`}
+function fmtRule(ms){const ts=Math.round(Math.abs(ms)/1000),s=ts%60,m=Math.floor(ts/60);return `${m}:${String(s).padStart(2,'0')}`}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function beep(){try{const A=window.AudioContext||window.webkitAudioContext,ac=new A(),o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;g.gain.value=.06;o.connect(g);g.connect(ac.destination);o.start();setTimeout(()=>{o.stop();ac.close()},180)}catch(e){}}
+function currentState(){return mode==='online'&&roomData?roomData.state:localState}
+function nowServer(){return Date.now()+serverOffset}
+function displayedRemain(i){const s=currentState();if(!s)return 0;let v=Number((s.remain||[])[i]??baseMs);if(!s.paused&&i===Number(s.active))v-=Math.max(0,nowServer()-Number(s.updatedAt||nowServer()));return v}
+function normalizedState(s,now){s=s||makeInitialState();s.remain=Array.from({length:MAX},(_,i)=>Number((s.remain||[])[i]??baseMs));s.turns=Array.from({length:MAX},(_,i)=>Number((s.turns||[])[i]??0));s.active=Number(s.active||0);s.paused=!!s.paused;if(!s.paused)s.remain[s.active]-=Math.max(0,now-Number(s.updatedAt||now));s.updatedAt=now;return s}
+function grantTurn(s,i){if(Number(s.turns[i]||0)===0)s.turns[i]=1;else{s.remain[i]+=baseMs;s.turns[i]+=1}}
+function buildPlayers(){playersWrap.innerHTML='';playersWrap.dataset.count=String(playerCount);playersWrap.classList.toggle('compact',playerCount>=4);for(let i=0;i<playerCount;i++){const el=document.createElement('div');el.className='player';el.dataset.i=i;el.tabIndex=0;el.innerHTML=`<div class="playerMain"><div class="left"><div class="name" id="name${i}"></div><div class="hint">タップで手番</div><div class="turnRule" id="rule${i}"></div></div><div class="time" id="time${i}"></div></div><div class="adjust"><button type="button" class="timeAdjust minus">−</button><button type="button" class="timeAdjust plus">＋</button></div><div class="badge" id="badge${i}">TURN</div>`;el.addEventListener('click',()=>activatePlayer(i));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activatePlayer(i)}});el.querySelector('.minus').onclick=e=>{e.stopPropagation();adjustPlayer(i,-1)};el.querySelector('.plus').onclick=e=>{e.stopPropagation();adjustPlayer(i,1)};playersWrap.appendChild(el)}buildNameInputs();buildSeatButtons()}
+function buildNameInputs(){namesWrap.innerHTML='';for(let i=0;i<playerCount;i++){const row=document.createElement('div');row.className='row';row.innerHTML=`<input id="n${i}" value="${escapeHtml(names[i])}" maxlength="12"><span class="small">PLAYER ${i+1}</span>`;namesWrap.appendChild(row)}}
+function buildSeatButtons(){const w=$('seatButtons');w.innerHTML='';for(let i=0;i<playerCount;i++){const b=document.createElement('button');b.className='seatBtn'+(mySeat===i?' selected':'');b.textContent=names[i]||String.fromCharCode(65+i);b.onclick=()=>{mySeat=i;buildSeatButtons();render()};w.appendChild(b)}}
+function render(){const s=currentState();if(!s)return;const rule=fmtRule(baseMs);subtitle.textContent=`${playerCount}人・毎ターン +${rule} / 余り時間は持ち越し`;for(let i=0;i<playerCount;i++){const p=playersWrap.querySelector(`.player[data-i="${i}"]`),v=displayedRemain(i);if(!p)continue;$('name'+i).textContent=names[i];$('time'+i).textContent=fmt(v);$('rule'+i).textContent=`1ターン +${rule}`;$('badge'+i).textContent=`TURN ${Math.max(1,Number((s.turns||[])[i]||0))}`;p.querySelector('.minus').textContent=`−${rule}`;p.querySelector('.plus').textContent=`＋${rule}`;p.classList.toggle('active',i===Number(s.active));p.classList.toggle('pausedActive',i===Number(s.active)&&!!s.paused);p.classList.toggle('overtime',v<0);p.classList.toggle('mine',i===mySeat);if(lastShown[i]!==null&&lastShown[i]>0&&v<=0&&!zeroSeen[i]){zeroSeen[i]=true;beep();if(navigator.vibrate)navigator.vibrate([100,60,150])}if(v>0)zeroSeen[i]=false;lastShown[i]=v}
+if(s.paused){status.textContent=mode==='online'?'SYNC PAUSED':'ALL PAUSED';status.className='status '+(mode==='online'?'sync':'paused');pauseBtn.textContent='▶ 全体を再開';pauseBtn.classList.add('paused')}else{status.textContent=`${names[Number(s.active)]} RUNNING${mode==='online'?' • SYNC':''}`;status.className='status '+(mode==='online'?'sync':'running');pauseBtn.textContent='⏸ 全体を一時停止';pauseBtn.classList.remove('paused')}document.querySelectorAll('[data-count]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.count)===playerCount));$('soloModeBtn').classList.toggle('selected',mode==='solo');$('onlineModeBtn').classList.toggle('selected',mode==='online')}
+function tick(now){if(mode==='solo'&&!localState.paused){const dt=now-last;localState.remain[localState.active]-=dt;localState.updatedAt=Date.now()}last=now;render();requestAnimationFrame(tick)}
+async function mutateState(fn){if(mode==='solo'){const now=Date.now();localState=normalizedState(localState,now);fn(localState,now);localState.updatedAt=now;render();return}if(!roomId||!fb)return;const now=nowServer();try{await fb.runTransaction(fb.ref(db,`rooms/${roomId}/state`),cur=>{cur=normalizedState(cur,now);fn(cur,now);cur.updatedAt=now;return cur})}catch(e){alert('同期に失敗しました。通信状態を確認してください。')}}
+function activatePlayer(i){const s=currentState();if(!s||i===Number(s.active))return;const expected=(Number(s.active)+1)%playerCount;mutateState(st=>{if(i===expected)grantTurn(st,i);st.active=i})}
+function adjustPlayer(i,d){mutateState(st=>{st.remain[i]+=d*baseMs})}
+$('nextBtn').onclick=()=>mutateState(st=>{const n=(Number(st.active)+1)%playerCount;grantTurn(st,n);st.active=n});$('prevBtn').onclick=()=>mutateState(st=>{st.active=(Number(st.active)-1+playerCount)%playerCount});pauseBtn.onclick=()=>mutateState(st=>{st.paused=!st.paused});
+async function resetTimers(){const ns=makeInitialState();if(mode==='solo'){localState=ns;render()}else if(roomId){await fb.set(fb.ref(db,`rooms/${roomId}/state`),ns)}}
+async function applyCount(n){playerCount=n;if(mode==='solo'){localState=makeInitialState();buildPlayers();render()}else if(roomId){names=names.slice(0,n).concat(['A','B','C','D','E','F'].slice(names.length,n));const ns=makeInitialState();await fb.update(fb.ref(db,`rooms/${roomId}`),{'meta/playerCount':n,'meta/names':names.slice(0,n),state:ns})}}
+async function applyBase(ms){baseMs=ms;if(mode==='solo'){localState=makeInitialState();render()}else if(roomId){const ns=makeInitialState();await fb.update(fb.ref(db,`rooms/${roomId}`),{'meta/baseMs':ms,state:ns})}}
+document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>applyCount(Number(b.dataset.count)));document.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>applyBase(Number(b.dataset.sec)));$('resetBtn').onclick=resetTimers;$('applyNames').onclick=async()=>{for(let i=0;i<playerCount;i++)names[i]=($('n'+i)?.value.trim())||String.fromCharCode(65+i);if(mode==='online'&&roomId)await fb.update(fb.ref(db,`rooms/${roomId}/meta`),{names:names.slice(0,playerCount)});buildPlayers();render()};
+function firebaseConfigured(){const c=window.BODOGE_FIREBASE_CONFIG;return c&&c.apiKey&&!String(c.apiKey).startsWith('PASTE_')&&c.databaseURL&&!String(c.databaseURL).startsWith('PASTE_')}
+async function ensureFirebase(){if(fb&&authUser)return true;if(!firebaseConfigured()){ $('firebaseWarn').classList.add('show');return false }try{const ver='12.18.0';const [appM,authM,dbM]=await Promise.all([import(`https://www.gstatic.com/firebasejs/${ver}/firebase-app.js`),import(`https://www.gstatic.com/firebasejs/${ver}/firebase-auth.js`),import(`https://www.gstatic.com/firebasejs/${ver}/firebase-database.js`)]);const app=appM.initializeApp(window.BODOGE_FIREBASE_CONFIG);const auth=authM.getAuth(app);const cred=await authM.signInAnonymously(auth);authUser=cred.user;db=dbM.getDatabase(app);fb={...dbM};unsubOffset=dbM.onValue(dbM.ref(db,'.info/serverTimeOffset'),s=>{serverOffset=Number(s.val()||0)});return true}catch(e){console.error(e);$('firebaseWarn').textContent='Firebaseに接続できません。設定値・匿名認証・Realtime Databaseを確認してください。';$('firebaseWarn').classList.add('show');return false}}
+function randomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
+async function createRoom(){if(!await ensureFirebase())return;const btn=$('createRoomBtn');btn.disabled=true;for(let tries=0;tries<5;tries++){const code=randomCode(),r=fb.ref(db,`rooms/${code}`),uid=authUser.uid,ns=makeInitialState(),data={hostUid:uid,meta:{version:7,playerCount,baseMs,names:names.slice(0,playerCount),createdAt:fb.serverTimestamp()},members:{[uid]:{joinedAt:fb.serverTimestamp(),role:'host'}},state:ns};try{await fb.set(r,data);btn.disabled=false;await enterRoom(code);return}catch(e){if(e.code!=='PERMISSION_DENIED')console.warn(e)}}btn.disabled=false;alert('部屋を作れませんでした。もう一度お試しください。')}
+async function joinRoom(code){if(!await ensureFirebase())return;code=String(code||'').trim().toUpperCase();if(!/^[A-Z2-9]{6}$/.test(code)){alert('6文字の部屋コードを入力してください。');return}try{await fb.set(fb.ref(db,`rooms/${code}/members/${authUser.uid}`),{joinedAt:fb.serverTimestamp(),role:'member'});await enterRoom(code)}catch(e){alert('部屋が見つからないか、参加できませんでした。コードを確認してください。')}}
+async function enterRoom(code){if(unsubRoom)unsubRoom();roomId=code;mode='online';$('onlineLobby').classList.remove('show');$('roomBar').classList.add('show');$('roomCode').textContent=code;history.replaceState(null,'',`${location.pathname}?room=${code}`);unsubRoom=fb.onValue(fb.ref(db,`rooms/${code}`),snap=>{const v=snap.val();if(!v){alert('この部屋は終了しました。');leaveRoom(true);return}roomData=v;playerCount=Number(v.meta?.playerCount||3);baseMs=Number(v.meta?.baseMs||60000);const rn=v.meta?.names||[];names=['A','B','C','D','E','F'].map((x,i)=>rn[i]||x);$('endRoomBtn').classList.toggle('hide',v.hostUid!==authUser.uid);buildPlayers();render()});render()}
+function leaveRoom(ended=false){if(unsubRoom){unsubRoom();unsubRoom=null}roomId='';roomData=null;mySeat=-1;$('roomBar').classList.remove('show');history.replaceState(null,'',location.pathname);mode='online';$('onlineLobby').classList.add('show');toggleMain(false);if(!ended)render()}
+async function endRoom(){if(!roomId||!fb)return;if(confirm('このONLINE ROOMを終了しますか？参加者全員の接続が切れます。'))try{await fb.remove(fb.ref(db,`rooms/${roomId}`))}catch(e){alert('部屋を終了できませんでした。')}}
+function toggleMain(show){pauseBtn.classList.toggle('hide',!show);playersWrap.classList.toggle('hide',!show);$('turnNav').classList.toggle('hide',!show);document.querySelector('.setup').classList.toggle('hide',!show);document.querySelector('.footer').classList.toggle('hide',!show)}
+function setMode(m){if(m==='solo'){if(unsubRoom){unsubRoom();unsubRoom=null}roomId='';roomData=null;mode='solo';$('onlineLobby').classList.remove('show');$('roomBar').classList.remove('show');history.replaceState(null,'',location.pathname);toggleMain(true);buildPlayers();render()}else{mode='online';if(roomId){toggleMain(true);$('roomBar').classList.add('show')}else{toggleMain(false);$('onlineLobby').classList.add('show');$('roomBar').classList.remove('show');if(!firebaseConfigured())$('firebaseWarn').classList.add('show')}render()}}
+$('soloModeBtn').onclick=()=>setMode('solo');$('onlineModeBtn').onclick=()=>setMode('online');$('backSoloBtn').onclick=()=>setMode('solo');$('createRoomBtn').onclick=createRoom;$('joinRoomBtn').onclick=()=>joinRoom($('joinCode').value);$('joinCode').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom(e.target.value)});$('leaveRoomBtn').onclick=()=>leaveRoom(false);$('endRoomBtn').onclick=endRoom;$('shareRoomBtn').onclick=async()=>{const url=`${location.origin}${location.pathname}?room=${roomId}`;try{if(navigator.share)await navigator.share({title:'ボドゲタイマー',text:`ROOM ${roomId}`,url});else{await navigator.clipboard.writeText(url);alert('部屋URLをコピーしました')}}catch(e){}};
+buildPlayers();render();requestAnimationFrame(tick);const q=new URLSearchParams(location.search).get('room');if(q){setMode('online');$('joinCode').value=q.toUpperCase()}
 })();
 </script>
 </body>
